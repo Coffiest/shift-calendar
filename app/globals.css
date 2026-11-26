@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f2f2f7;
+  --card: #ffffff;
+  --line: #d1d1d6;
+  --fg: #1c1c1e;
+  --fg2: #3c3c43;
+  --fg3: #6c6c70;
+  --accent: #0a64d6;
+  --on-accent: #ffffff;
+  --danger: #c4251c;
+  --sat: #0a5cc2;
+  --sun: #c4251c;
+  /* 人数の色(0人 / 1人 / 5人 / 6人以上) */
+  --r2: #f5b5b0;
+  --r1: #fde4e2;
+  --b1: #dde9fb;
+  --b2: #a9c8f5;
+  --off: #fde4e2;
+  --off-fg: #9b1c14;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --card: #1c1c1e;
+    --line: #3a3a3c;
+    --fg: #f2f2f7;
+    --fg2: #d1d1d6;
+    --fg3: #a1a1a6;
+    --accent: #4a9bff;
+    --on-accent: #001b3d;
+    --danger: #ff6961;
+    --sat: #6fb1ff;
+    --sun: #ff7b72;
+    --r2: #6b1f1a;
+    --r1: #3a1716;
+    --b1: #142a48;
+    --b2: #1f4a85;
+    --off: #4a1c19;
+    --off-fg: #ffb4ad;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-fg: var(--fg);
+  --color-fg2: var(--fg2);
+  --color-fg3: var(--fg3);
+  --color-accent: var(--accent);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-sat: var(--sat);
+  --color-sun: var(--sun);
+  --color-r2: var(--r2);
+  --color-r1: var(--r1);
+  --color-b1: var(--b1);
+  --color-b2: var(--b2);
+  --color-off: var(--off);
+  --color-off-fg: var(--off-fg);
+}
+
+html {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  background: var(--bg);
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+button { -webkit-tap-highlight-color: transparent; }
