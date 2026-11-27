@@ -1,76 +1,138 @@
 @import "tailwindcss";
 
+/* iOS のシステムカラーに寄せた色。文字は背景に対して 4.5:1 以上を確保している */
 :root {
-  --bg: #f2f2f7;
-  --card: #ffffff;
-  --line: #d1d1d6;
-  --fg: #1c1c1e;
+  --bg: #f2f2f7;            /* systemGroupedBackground */
+  --card: #ffffff;          /* secondarySystemGroupedBackground */
+  --fill: rgba(118, 118, 128, 0.12); /* 入力欄の地 */
+  --sep: rgba(60, 60, 67, 0.29);
+  --fg: #000000;
   --fg2: #3c3c43;
   --fg3: #6c6c70;
-  --accent: #0a64d6;
-  --on-accent: #ffffff;
-  --danger: #c4251c;
-  --sat: #0a5cc2;
-  --sun: #c4251c;
-  /* 人数の色(0人 / 1人 / 5人 / 6人以上) */
-  --r2: #f5b5b0;
-  --r1: #fde4e2;
-  --b1: #dde9fb;
-  --b2: #a9c8f5;
-  --off: #fde4e2;
-  --off-fg: #9b1c14;
+  --accent: #0066d6;        /* 文字のリンク色 */
+  --accent-fill: #0071e3;   /* 白文字を載せる塗り */
+  --accent-tint: rgba(0, 122, 255, 0.12);
+  --danger: #d70015;
+  --danger-fill: #d70015;
+  --danger-tint: rgba(255, 59, 48, 0.12);
+  --ok: #1f7a35;
+  --ok-tint: rgba(52, 199, 89, 0.14);
+  --sat: #0066d6;
+  --sun: #d70015;
+  --r2: #ffb3ad;
+  --r1: #ffe1de;
+  --b1: #dbeaff;
+  --b2: #a8cbff;
+  --bar: rgba(249, 249, 249, 0.78);
+  --scrim: rgba(0, 0, 0, 0.4);
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #000000;
     --card: #1c1c1e;
-    --line: #3a3a3c;
-    --fg: #f2f2f7;
-    --fg2: #d1d1d6;
-    --fg3: #a1a1a6;
-    --accent: #4a9bff;
-    --on-accent: #001b3d;
+    --fill: rgba(118, 118, 128, 0.24);
+    --sep: rgba(84, 84, 88, 0.65);
+    --fg: #ffffff;
+    --fg2: #ebebf5;
+    --fg3: #98989f;
+    --accent: #4da3ff;
+    --accent-fill: #0071e3;
+    --accent-tint: rgba(10, 132, 255, 0.22);
     --danger: #ff6961;
-    --sat: #6fb1ff;
-    --sun: #ff7b72;
-    --r2: #6b1f1a;
-    --r1: #3a1716;
-    --b1: #142a48;
-    --b2: #1f4a85;
-    --off: #4a1c19;
-    --off-fg: #ffb4ad;
+    --danger-fill: #c4182c;
+    --danger-tint: rgba(255, 69, 58, 0.2);
+    --ok: #30d158;
+    --ok-tint: rgba(48, 209, 88, 0.16);
+    --sat: #4da3ff;
+    --sun: #ff6961;
+    --r2: #6e1c17;
+    --r1: #3b1513;
+    --b1: #102a4c;
+    --b2: #1d4f91;
+    --bar: rgba(22, 22, 24, 0.78);
+    --scrim: rgba(0, 0, 0, 0.6);
   }
 }
 
 @theme inline {
   --color-bg: var(--bg);
   --color-card: var(--card);
-  --color-line: var(--line);
+  --color-fill: var(--fill);
+  --color-sep: var(--sep);
   --color-fg: var(--fg);
   --color-fg2: var(--fg2);
   --color-fg3: var(--fg3);
   --color-accent: var(--accent);
-  --color-on-accent: var(--on-accent);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-tint: var(--accent-tint);
   --color-danger: var(--danger);
+  --color-danger-fill: var(--danger-fill);
+  --color-danger-tint: var(--danger-tint);
+  --color-ok: var(--ok);
+  --color-ok-tint: var(--ok-tint);
   --color-sat: var(--sat);
   --color-sun: var(--sun);
   --color-r2: var(--r2);
   --color-r1: var(--r1);
   --color-b1: var(--b1);
   --color-b2: var(--b2);
-  --color-off: var(--off);
-  --color-off-fg: var(--off-fg);
 }
 
 html {
   background: var(--bg);
   color: var(--fg);
-  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", system-ui, sans-serif;
+  font-size: 100%;
+  line-height: 1.4;
   -webkit-text-size-adjust: 100%;
+  -webkit-font-smoothing: antialiased;
 }
 body {
   background: var(--bg);
   min-height: 100dvh;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
-button { -webkit-tap-highlight-color: transparent; }
+button { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+
+/* 大きな見出しは字間を詰める(iOS の Large Title と同じ考え方) */
+.large-title { font-size: 34px; line-height: 1.12; font-weight: 700; letter-spacing: -0.02em; }
+.title2 { font-size: 22px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; }
+
+/* 触れた瞬間に少し沈む。離した瞬間ではなく、押した瞬間に反応させる */
+.pressable { transition: transform 120ms ease-out, opacity 120ms ease-out; }
+.pressable:active { transform: scale(0.96); opacity: 0.75; }
+
+/* 上下のバーは、内容が下を流れる半透明の素材 */
+.material-bar {
+  background: var(--bar);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* 下から出るシート */
+.sheet-enter { animation: sheet-in 380ms cubic-bezier(0.32, 0.72, 0, 1); }
+.scrim-enter { animation: scrim-in 250ms ease-out; }
+@keyframes sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes scrim-in { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .pressable, .pressable:active { transition: opacity 120ms ease; transform: none; }
+  .sheet-enter { animation: scrim-in 200ms ease-out; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .material-bar { background: var(--card); backdrop-filter: none; -webkit-backdrop-filter: none; }
+}
+
+/* 行と行の区切り。左を空けた 0.5px の線(iOS の表と同じ) */
+.row + .row::before {
+  content: "";
+  position: absolute;
+  left: 16px;
+  right: 0;
+  top: 0;
+  height: 1px;
+  transform: scaleY(0.5);
+  transform-origin: top;
+  background: var(--sep);
+}

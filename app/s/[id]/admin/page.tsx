@@ -1,8 +1,8 @@
 "use client";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Copy, Check, Download, Lock, LockOpen, LogOut, Plus, Share, Trash2, X } from "lucide-react";
-import { Page, Card, Button, Label, inputClass, ErrorText, api, ApiError } from "@/components/ui";
+import { Copy, Check, Download, Plus, Share, Trash2 } from "lucide-react";
+import { NavBar, Page, LargeTitle, Section, Row, RowInput, Button, Switch, ErrorText, api, ApiError } from "@/components/ui";
 import { AdminCalendar } from "@/components/AdminCalendar";
 import { LEGEND, LEVEL_BG } from "@/components/levels";
 import { renderShiftPng } from "@/components/png";
@@ -18,27 +18,30 @@ function nextMonthOf(y: number, m: number) {
 function CopyRow({ label, url }: { label: string; url: string }) {
   const [done, setDone] = useState(false);
   return (
-    <div>
-      <Label>{label}</Label>
-      <div className="flex gap-2">
-        <input readOnly value={url} className={`${inputClass} text-[15px]`} onFocus={(e) => e.target.select()} />
-        <Button
-          aria-label={`${label}をコピー`}
-          onClick={async () => {
-            await navigator.clipboard.writeText(url).catch(() => {});
-            setDone(true);
-            setTimeout(() => setDone(false), 1500);
-          }}
-        >
-          {done ? <Check size={18} strokeWidth={2} aria-hidden /> : <Copy size={18} strokeWidth={2} aria-hidden />}
-          {done ? "済" : "コピー"}
-        </Button>
+    <Row>
+      <div className="min-w-0 flex-1">
+        <p className="text-[17px]">{label}</p>
+        <p className="truncate text-[13px] text-fg3">{url}</p>
       </div>
-    </div>
+      <Button
+        variant="tinted"
+        aria-label={`${label}をコピー`}
+        onClick={async () => {
+          await navigator.clipboard.writeText(url).catch(() => {});
+          setDone(true);
+          setTimeout(() => setDone(false), 1500);
+        }}
+      >
+        {done ? <Check size={18} strokeWidth={2} aria-hidden /> : <Copy size={18} strokeWidth={2} aria-hidden />}
+        {done ? "コピーした" : "コピー"}
+      </Button>
+    </Row>
   );
 }
 
-export default function AdminPage() {
+const selectClass = "pressable min-h-11 rounded-full bg-fill px-4 text-[15px] font-semibold text-fg outline-none";
+
+function AdminInner() {
   const { id } = useParams<{ id: string }>();
   const isNew = useSearchParams().get("new") === "1";
   const [store, setStore] = useState<StoreAdmin | null>(null);
@@ -123,11 +126,15 @@ export default function AdminPage() {
   async function setOpen(open: boolean) {
     if (!period) return;
     setErr("");
+    const before = period;
+    setPeriod({ ...period, open });
     try {
       await api(`/api/periods/${period.id}`, { method: "PATCH", body: JSON.stringify({ open }) });
-      setPeriod({ ...period, open });
       await loadStore(period.id);
-    } catch (e) { handle(e); }
+    } catch (e) {
+      setPeriod(before);
+      handle(e);
+    }
   }
 
   async function deletePeriod() {
@@ -169,6 +176,11 @@ export default function AdminPage() {
     } catch (e) { setErr((e as Error).message); }
   }
 
+  function closePng() {
+    if (png) URL.revokeObjectURL(png.url);
+    setPng(null);
+  }
+
   async function savePng() {
     if (!png || !period) return;
     const fileName = `shift-${period.year}-${String(period.month).padStart(2, "0")}.png`;
@@ -189,30 +201,24 @@ export default function AdminPage() {
     return [y, y + 1, y + 2];
   }, []);
 
-  if (loadErr) return <Page><Card><p className="text-[17px]">{loadErr}</p></Card></Page>;
-  if (!store) return <Page><p className="text-fg3">読み込み中</p></Page>;
+  if (loadErr) return <><NavBar title="店長" /><Page><Section><Row><p className="text-[17px]">{loadErr}</p></Row></Section></Page></>;
+  if (!store) return <><NavBar title="" /><Page><p className="px-4 text-fg3">読み込み中</p></Page></>;
 
   if (!store.authed) {
     return (
-      <Page>
-        <div className="mx-auto max-w-md">
-          <p className="text-[15px] font-semibold text-fg3">{store.name}</p>
-          <h1 className="mb-4 text-[28px] font-bold">店長のログイン</h1>
-          <Card>
-            <form onSubmit={login} className="space-y-4">
-              <label className="block">
-                <Label>パスワード</Label>
-                <input className={inputClass} type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" autoFocus />
-              </label>
-              <ErrorText>{loginErr}</ErrorText>
-              <Button variant="primary" className="w-full" disabled={!pw}>
-                <Lock size={18} strokeWidth={2} aria-hidden />
-                ログイン
-              </Button>
-            </form>
-          </Card>
-        </div>
-      </Page>
+      <>
+        <NavBar title={store.name} />
+        <Page>
+          <LargeTitle eyebrow={store.name}>店長のログイン</LargeTitle>
+          <form onSubmit={login}>
+            <Section>
+              <RowInput label="パスワード" type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password" autoFocus />
+            </Section>
+            <ErrorText>{loginErr}</ErrorText>
+            <Button variant="filled" size="lg" className="w-full" disabled={!pw}>ログイン</Button>
+          </form>
+        </Page>
+      </>
     );
   }
 
@@ -221,136 +227,145 @@ export default function AdminPage() {
   const adminUrl = `${origin}/s/${id}/admin`;
 
   return (
-    <Page>
-      <div className="mb-4 flex items-start justify-between gap-2">
-        <div>
-          <p className="text-[15px] font-semibold text-fg3">店長の画面</p>
-          <h1 className="text-[28px] font-bold">{store.name}</h1>
-        </div>
-        <Button onClick={logout} aria-label="ログアウト">
-          <LogOut size={18} strokeWidth={2} aria-hidden />
-          ログアウト
-        </Button>
-      </div>
+    <>
+      <NavBar title={store.name} right={<Button variant="plain" className="-mr-3" onClick={logout}>ログアウト</Button>} />
+      <Page wide>
+        <LargeTitle eyebrow="店長の画面">{store.name}</LargeTitle>
 
-      {isNew && (
-        <Card className="mb-4 border-2 border-accent">
-          <p className="text-[17px] font-bold">お店を作った。この画面のURLを必ずブックマークしておくこと。</p>
-          <p className="mt-1 text-[15px] text-fg2">アカウントが無いので、URLを無くすとこの画面に戻れない。</p>
-        </Card>
-      )}
+        {isNew && (
+          <Section footer="アカウントが無いので、URLを無くすとこの画面に戻れない。">
+            <Row className="bg-accent-tint">
+              <p className="py-1 text-[17px] font-semibold">お店を作った。この画面のURLを必ずブックマークしておくこと。</p>
+            </Row>
+          </Section>
+        )}
 
-      <Card className="mb-4 space-y-4">
-        <CopyRow label="バイトに送るリンク(毎月同じ)" url={staffUrl} />
-        <CopyRow label="店長用のURL(人に送らない)" url={adminUrl} />
-      </Card>
+        <div className="md:grid md:grid-cols-2 md:gap-6">
+          <Section header="共有">
+            <CopyRow label="バイトに送るリンク" url={staffUrl} />
+            <CopyRow label="店長用のURL" url={adminUrl} />
+          </Section>
 
-      <Card className="mb-4">
-        <Label>募集する月</Label>
-        <div className="flex flex-wrap gap-2">
-          {periods.map((p) => (
-            <Button key={p.id} variant={p.id === pid ? "primary" : "plain"} onClick={() => setPid(p.id)}>
-              {p.year}年{p.month}月
-              <span className="text-[13px] font-semibold opacity-80">{p.open ? "受付中" : "終了"}</span>
-            </Button>
-          ))}
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <select className="min-h-11 rounded-xl border border-line bg-bg px-3 text-[17px] text-fg outline-none focus:border-accent" value={newYm.year} onChange={(e) => setNewYm({ ...newYm, year: Number(e.target.value) })} aria-label="年">
-            {yearOptions.map((y) => <option key={y} value={y}>{y}年</option>)}
-          </select>
-          <select className="min-h-11 rounded-xl border border-line bg-bg px-3 text-[17px] text-fg outline-none focus:border-accent" value={newYm.month} onChange={(e) => setNewYm({ ...newYm, month: Number(e.target.value) })} aria-label="月">
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => <option key={m} value={m}>{m}月</option>)}
-          </select>
-          <Button onClick={createPeriod}>
-            <Plus size={18} strokeWidth={2} aria-hidden />
-            この月の募集を作る
-          </Button>
-        </div>
-      </Card>
-
-      <ErrorText>{err}</ErrorText>
-
-      {period && (
-        <>
-          <div className="my-4 flex flex-wrap items-center gap-2">
-            <h2 className="mr-auto text-[22px] font-bold">{period.year}年{period.month}月</h2>
-            {period.open ? (
-              <Button onClick={() => setOpen(false)}>
-                <Lock size={18} strokeWidth={2} aria-hidden />
-                受付を終了する
-              </Button>
-            ) : (
-              <Button onClick={() => setOpen(true)}>
-                <LockOpen size={18} strokeWidth={2} aria-hidden />
-                受付を再開する
-              </Button>
-            )}
-            <Button variant="primary" onClick={makePng}>
-              <Download size={18} strokeWidth={2} aria-hidden />
-              PNGで書き出す
-            </Button>
-          </div>
-
-          <p className="mb-2 text-[15px] text-fg2">名前を押すとその日は「出勤なし」になる。もう一度押すと戻る。</p>
-          <div className="mb-3 flex flex-wrap gap-2" aria-label="人数の色">
-            {LEGEND.map((l) => (
-              <span key={l.level} className={`rounded-lg border border-line px-2 py-1 text-[13px] font-semibold ${LEVEL_BG[l.level]}`}>{l.label}</span>
-            ))}
-          </div>
-
-          {members.length === 0 ? (
-            <Card><p className="text-[17px]">まだ誰も回答していない。上の「バイトに送るリンク」を送ろう。</p></Card>
-          ) : (
-            <AdminCalendar period={period} members={members} onToggle={toggleCut} />
-          )}
-
-          <Card className="mt-6">
-            <h3 className="mb-3 text-[20px] font-bold">一人ずつの出勤日数</h3>
-            {members.length === 0 ? (
-              <p className="text-[15px] text-fg3">回答はまだない</p>
-            ) : (
-              <ul className="divide-y divide-line">
-                {members.map((m) => (
-                  <li key={m.id} className="flex items-start gap-3 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[17px] font-bold">{m.name}</p>
-                      <p className="text-[15px] text-fg2">出勤 {workDays(m, period.days)}日 / 休み希望 {m.off.length}日</p>
-                      {m.note && <p className="mt-1 whitespace-pre-wrap text-[15px] text-fg2">備考: {m.note}</p>}
-                    </div>
-                    <Button variant="danger" onClick={() => deleteMember(m)} aria-label={`${m.name} さんの回答を消す`}>
-                      <Trash2 size={18} strokeWidth={2} aria-hidden />
-                    </Button>
-                  </li>
+          <Section header="募集する月" footer="バイトに送るリンクは毎月同じ。受付中の月だけがバイトの画面に出る。">
+            {periods.length > 0 && (
+              <Row className="flex-wrap">
+                {periods.map((p) => (
+                  <Button key={p.id} variant={p.id === pid ? "filled" : "gray"} onClick={() => setPid(p.id)}>
+                    {p.year}年{p.month}月
+                    <span className="text-[13px] opacity-80">{p.open ? "受付中" : "終了"}</span>
+                  </Button>
                 ))}
-              </ul>
+              </Row>
             )}
-          </Card>
+            <Row className="flex-wrap">
+              <select className={selectClass} value={newYm.year} onChange={(e) => setNewYm({ ...newYm, year: Number(e.target.value) })} aria-label="年">
+                {yearOptions.map((y) => <option key={y} value={y}>{y}年</option>)}
+              </select>
+              <select className={selectClass} value={newYm.month} onChange={(e) => setNewYm({ ...newYm, month: Number(e.target.value) })} aria-label="月">
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => <option key={m} value={m}>{m}月</option>)}
+              </select>
+              <Button variant="tinted" onClick={createPeriod}>
+                <Plus size={18} strokeWidth={2} aria-hidden />
+                募集を作る
+              </Button>
+            </Row>
+          </Section>
+        </div>
 
-          <div className="mt-6">
-            <Button variant="danger" onClick={deletePeriod}>
-              <Trash2 size={18} strokeWidth={2} aria-hidden />
-              この月を消す
-            </Button>
-          </div>
-        </>
-      )}
+        <ErrorText>{err}</ErrorText>
+
+        {period && (
+          <>
+            <Section header={`${period.year}年${period.month}月`}>
+              <Row>
+                <div className="flex-1">
+                  <p className="text-[17px]">受付中</p>
+                  <p className="text-[13px] text-fg3">{period.open ? "バイトが休み希望を出せる" : "締め切り中。バイトは直せない"}</p>
+                </div>
+                <Switch checked={period.open} onChange={setOpen} label="受付中" />
+              </Row>
+              <Row>
+                <button type="button" onClick={makePng} className="pressable flex min-h-11 flex-1 items-center gap-2 text-left text-[17px] text-accent">
+                  <Download size={20} strokeWidth={2} aria-hidden />
+                  PNGで書き出す
+                </button>
+              </Row>
+            </Section>
+
+            <Section
+              header="シフト"
+              footer="名前を押すと、その日は「出勤なし」になる。もう一度押すと戻る。"
+              plain
+            >
+              <div className="mb-3 flex flex-wrap gap-1.5" aria-label="人数の色">
+                {LEGEND.map((l) => (
+                  <span key={l.level} className={`rounded-full px-3 py-1 text-[13px] font-semibold ${LEVEL_BG[l.level]}`}>{l.label}</span>
+                ))}
+              </div>
+              {members.length === 0 ? (
+                <div className="rounded-xl bg-card px-4 py-3 text-[17px]">まだ誰も回答していない。「バイトに送るリンク」を送ろう。</div>
+              ) : (
+                <AdminCalendar period={period} members={members} onToggle={toggleCut} />
+              )}
+            </Section>
+
+            <Section header="一人ずつの出勤日数">
+              {members.length === 0 ? (
+                <Row><p className="text-[15px] text-fg3">回答はまだない</p></Row>
+              ) : (
+                members.map((m) => (
+                  <Row key={m.id}>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[17px] font-semibold">{m.name}</p>
+                      <p className="text-[15px] tabular-nums text-fg3">出勤 {workDays(m, period.days)}日 ・ 休み希望 {m.off.length}日</p>
+                      {m.note && <p className="mt-0.5 whitespace-pre-wrap text-[15px] text-fg2">{m.note}</p>}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => deleteMember(m)}
+                      aria-label={`${m.name} さんの回答を消す`}
+                      className="pressable -mr-2 flex h-11 w-11 items-center justify-center text-danger"
+                    >
+                      <Trash2 size={20} strokeWidth={2} aria-hidden />
+                    </button>
+                  </Row>
+                ))
+              )}
+            </Section>
+
+            <Section>
+              <Row>
+                <button type="button" onClick={deletePeriod} className="pressable flex min-h-11 flex-1 items-center justify-center text-[17px] text-danger">
+                  この月を消す
+                </button>
+              </Row>
+            </Section>
+          </>
+        )}
+      </Page>
 
       {png && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="書き出した画像">
-          <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col overflow-hidden rounded-2xl bg-card">
-            <div className="flex items-center justify-between gap-2 border-b border-line p-3">
-              <p className="text-[15px] font-semibold text-fg2">長押しでも保存できる</p>
-              <Button aria-label="閉じる" onClick={() => { URL.revokeObjectURL(png.url); setPng(null); }}>
-                <X size={18} strokeWidth={2} aria-hidden />
-              </Button>
+        <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="書き出した画像">
+          <div className="scrim-enter absolute inset-0 bg-[var(--scrim)]" onClick={closePng} />
+          <div
+            className="sheet-enter relative mx-auto flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-[16px] bg-bg"
+            style={{ paddingBottom: "max(env(safe-area-inset-bottom), 12px)" }}
+          >
+            <div className="mx-auto mt-2 h-[5px] w-9 rounded-full bg-fill" aria-hidden />
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center px-4 py-2">
+              <span />
+              <span className="text-[17px] font-semibold">シフト表</span>
+              <span className="flex justify-end">
+                <Button variant="plain" className="-mr-3" onClick={closePng}>完了</Button>
+              </span>
             </div>
-            <div className="flex-1 overflow-auto bg-bg p-3">
+            <div className="flex-1 overflow-auto px-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={png.url} alt="シフト表の画像" className="mx-auto w-full" />
+              <img src={png.url} alt="シフト表の画像" className="mx-auto w-full rounded-xl" />
+              <p className="mt-2 text-center text-[13px] text-fg3">画像を長押ししても保存できる</p>
             </div>
-            <div className="border-t border-line p-3">
-              <Button variant="primary" className="w-full" onClick={savePng}>
+            <div className="px-4 pt-3">
+              <Button variant="filled" size="lg" className="w-full" onClick={savePng}>
                 <Share size={18} strokeWidth={2} aria-hidden />
                 保存・共有する
               </Button>
@@ -358,6 +373,14 @@ export default function AdminPage() {
           </div>
         </div>
       )}
-    </Page>
+    </>
+  );
+}
+
+export default function AdminPage() {
+  return (
+    <Suspense fallback={null}>
+      <AdminInner />
+    </Suspense>
   );
 }
