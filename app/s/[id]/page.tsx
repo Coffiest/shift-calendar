@@ -1,8 +1,8 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Check, Pencil, UserPlus } from "lucide-react";
-import { Page, Card, Button, Label, inputClass, ErrorText, api } from "@/components/ui";
+import { Check, UserPlus } from "lucide-react";
+import { NavBar, Page, LargeTitle, Section, Row, RowInput, Button, ErrorText, BottomBar, api } from "@/components/ui";
 import { OffPicker } from "@/components/OffPicker";
 import type { Member, PeriodInfo, PeriodSummary } from "@/lib/types";
 
@@ -18,7 +18,7 @@ export default function StaffPage() {
   const [note, setNote] = useState("");
   const [off, setOff] = useState<Set<number>>(new Set());
   const [err, setErr] = useState("");
-  const [saved, setSaved] = useState("");
+  const [saved, setSaved] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export default function StaffPage() {
     setNote("");
     setOff(new Set());
     setErr("");
-    setSaved("");
+    setSaved(false);
   }
 
   function startEdit(m: Member) {
@@ -58,12 +58,12 @@ export default function StaffPage() {
     setNote(m.note);
     setOff(new Set(m.off));
     setErr("");
-    setSaved("");
+    setSaved(false);
     document.getElementById("form")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function toggle(day: number) {
-    setSaved("");
+    setSaved(false);
     setOff((prev) => {
       const next = new Set(prev);
       if (next.has(day)) next.delete(day);
@@ -72,8 +72,7 @@ export default function StaffPage() {
     });
   }
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
+  async function save() {
     if (!pid) return;
     setErr("");
     setBusy(true);
@@ -85,12 +84,14 @@ export default function StaffPage() {
         await api(`/api/periods/${pid}/members`, { method: "POST", body: JSON.stringify(payload) });
       }
       const r = await loadPeriod(pid);
-      const me = r.members.find((m) => m.name === (editing?.name ?? name.normalize("NFKC").replace(/\s+/g, " ").trim()));
+      const key = editing?.name ?? name.normalize("NFKC").replace(/\s+/g, " ").trim();
+      const me = r.members.find((m) => m.name === key);
       if (me) {
         setEditing(me);
         setName(me.name);
       }
-      setSaved(`保存した。休み希望 ${off.size}日`);
+      setSaved(true);
+      navigator.vibrate?.(12);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -100,92 +101,116 @@ export default function StaffPage() {
 
   if (loadErr) {
     return (
-      <Page>
-        <Card><p className="text-[17px]">{loadErr}</p></Card>
-      </Page>
+      <>
+        <NavBar title="シフト調整" />
+        <Page><Section><Row><p className="text-[17px]">{loadErr}</p></Row></Section></Page>
+      </>
     );
   }
-  if (!store) return <Page><p className="text-fg3">読み込み中</p></Page>;
+  if (!store) return <><NavBar title="" /><Page><p className="px-4 text-fg3">読み込み中</p></Page></>;
+
+  const days = period?.days ?? 0;
+  const canSave = !busy && (!!editing || !!name.trim());
 
   return (
-    <Page>
-      <div className="mx-auto max-w-md">
-        <p className="text-[15px] font-semibold text-fg3">{store.name}</p>
-        <h1 className="mb-4 text-[28px] font-bold">休み希望を出す</h1>
+    <>
+      <NavBar title={store.name} />
+      <Page>
+        <LargeTitle eyebrow={store.name}>休み希望</LargeTitle>
 
         {store.periods.length === 0 && (
-          <Card><p className="text-[17px] leading-relaxed">いま受付中の月はない。店長が受付を始めたら、このページで出せるようになる。</p></Card>
+          <Section footer="店長が受付を始めたら、このページで出せるようになる。">
+            <Row><p className="text-[17px]">いま受付中の月はない</p></Row>
+          </Section>
         )}
 
         {store.periods.length > 1 && (
-          <div className="mb-4 flex flex-wrap gap-2">
+          <div className="mb-6 flex rounded-[9px] bg-fill p-0.5" role="tablist" aria-label="月">
             {store.periods.map((p) => (
-              <Button key={p.id} variant={p.id === pid ? "primary" : "plain"} onClick={() => setPid(p.id)}>
+              <button
+                key={p.id}
+                role="tab"
+                aria-selected={p.id === pid}
+                onClick={() => setPid(p.id)}
+                className={`pressable min-h-9 flex-1 rounded-[7px] text-[13px] font-semibold ${p.id === pid ? "bg-card shadow-[0_3px_8px_rgba(0,0,0,0.12)]" : "text-fg2"}`}
+              >
                 {p.year}年{p.month}月
-              </Button>
+              </button>
             ))}
           </div>
         )}
 
         {period && (
           <>
-            <Card className="mb-4">
-              <h2 className="mb-3 text-[20px] font-bold">{period.year}年{period.month}月</h2>
-              <Label>回答した人(自分の名前を押すと直せる)</Label>
+            <Section header={`${period.year}年${period.month}月に回答した人`} footer="自分の名前を押すと、出した内容を直せる。" plain>
               {members.length === 0 ? (
-                <p className="text-[15px] text-fg3">まだ誰も回答していない</p>
+                <div className="rounded-xl bg-card px-4 py-3 text-[15px] text-fg3">まだ誰も回答していない</div>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {members.map((m) => (
-                    <Button key={m.id} variant={editing?.id === m.id ? "primary" : "plain"} onClick={() => startEdit(m)}>
-                      <Pencil size={16} strokeWidth={2} aria-hidden />
+                    <Button key={m.id} variant={editing?.id === m.id ? "filled" : "gray"} onClick={() => startEdit(m)}>
                       {m.name}
                     </Button>
                   ))}
                 </div>
               )}
-            </Card>
+            </Section>
 
-            <Card>
-              <form id="form" onSubmit={save} className="space-y-4">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="text-[20px] font-bold">{editing ? `${editing.name} さんの回答を直す` : "新しく回答する"}</h2>
-                  {editing && (
-                    <Button type="button" onClick={startNew} aria-label="新しく回答する">
-                      <UserPlus size={18} strokeWidth={2} aria-hidden />
-                      新規
-                    </Button>
-                  )}
-                </div>
-                {!editing && (
-                  <label className="block">
-                    <Label>名前</Label>
-                    <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} maxLength={20} placeholder="例: 山田" />
-                  </label>
-                )}
-                <div>
-                  <Label>休みたい日を押す(押さなかった日は出勤できる扱い)</Label>
-                  <OffPicker year={period.year} month={period.month} holidays={period.holidays} off={off} onToggle={toggle} />
-                </div>
-                <label className="block">
-                  <Label>備考(任意)</Label>
-                  <textarea className={`${inputClass} min-h-24 py-2`} value={note} onChange={(e) => { setNote(e.target.value); setSaved(""); }} maxLength={500} placeholder="例: 第2週はテストなので少なめ希望" />
-                </label>
-                <ErrorText>{err}</ErrorText>
+            <div id="form" className="scroll-mt-14" />
+            {editing ? (
+              <Section header="名前">
+                <Row>
+                  <span className="flex-1 text-[17px] font-semibold">{editing.name}</span>
+                  <Button variant="plain" className="-mr-3" onClick={startNew}>
+                    <UserPlus size={18} strokeWidth={2} aria-hidden />
+                    別の人として回答
+                  </Button>
+                </Row>
+              </Section>
+            ) : (
+              <Section header="名前">
+                <RowInput label="名前" value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} maxLength={20} placeholder="例: 山田" />
+              </Section>
+            )}
+
+            <Section header="日ごとの希望" footer="最初は全部の日が「出勤希望」。休みたい日を押すと「休み」になる。もう一度押すと戻る。">
+              <div className="p-2">
+                <OffPicker year={period.year} month={period.month} holidays={period.holidays} off={off} onToggle={toggle} />
+              </div>
+            </Section>
+
+            <Section header="備考(任意)">
+              <textarea
+                className="block min-h-24 w-full resize-none bg-transparent px-4 py-3 text-[17px] text-fg outline-none placeholder:text-fg3"
+                value={note}
+                onChange={(e) => { setNote(e.target.value); setSaved(false); }}
+                maxLength={500}
+                placeholder="例: 第2週はテストなので少なめ希望"
+                aria-label="備考"
+              />
+            </Section>
+
+            <ErrorText>{err}</ErrorText>
+
+            <BottomBar>
+              <div className="mb-2 flex items-center justify-between text-[13px] font-semibold">
+                <span className="text-fg3">
+                  出勤希望 <span className="text-ok">{days - off.size}日</span> ・ 休み <span className="text-danger">{off.size}日</span>
+                </span>
                 {saved && (
-                  <p className="flex items-center gap-2 text-[15px] font-semibold text-accent" role="status">
-                    <Check size={18} strokeWidth={2} aria-hidden />
-                    {saved}
-                  </p>
+                  <span className="flex items-center gap-1 text-ok" role="status">
+                    <Check size={16} strokeWidth={2.5} aria-hidden />
+                    保存した
+                  </span>
                 )}
-                <Button variant="primary" className="w-full" disabled={busy || (!editing && !name.trim())}>
-                  {busy ? "保存中" : "保存する"}
-                </Button>
-              </form>
-            </Card>
+              </div>
+              <Button variant="filled" size="lg" className="w-full" disabled={!canSave} onClick={save}>
+                {busy ? "保存中" : editing ? "変更を保存" : "保存する"}
+              </Button>
+            </BottomBar>
           </>
         )}
-      </div>
-    </Page>
+      </Page>
+    </>
   );
 }
