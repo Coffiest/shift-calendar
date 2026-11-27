@@ -1,8 +1,8 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { Check, UserPlus } from "lucide-react";
-import { NavBar, Page, LargeTitle, Section, Row, RowInput, Button, ErrorText, BottomBar, api } from "@/components/ui";
+import { Check, ChevronRight, Plus } from "lucide-react";
+import { NavBar, Page, LargeTitle, Section, Row, RowInput, RowButton, Segmented, Button, ErrorText, BottomBar, api } from "@/components/ui";
 import { OffPicker } from "@/components/OffPicker";
 import type { Member, PeriodInfo, PeriodSummary } from "@/lib/types";
 
@@ -125,56 +125,51 @@ export default function StaffPage() {
         )}
 
         {store.periods.length > 1 && (
-          <div className="mb-6 flex rounded-[9px] bg-fill p-0.5" role="tablist" aria-label="月">
-            {store.periods.map((p) => (
-              <button
-                key={p.id}
-                role="tab"
-                aria-selected={p.id === pid}
-                onClick={() => setPid(p.id)}
-                className={`pressable min-h-9 flex-1 rounded-[7px] text-[13px] font-semibold ${p.id === pid ? "bg-card shadow-[0_3px_8px_rgba(0,0,0,0.12)]" : "text-fg2"}`}
-              >
-                {p.year}年{p.month}月
-              </button>
-            ))}
+          <div className="mb-8">
+            <Segmented
+              label="月"
+              value={pid}
+              onChange={setPid}
+              items={store.periods.map((p) => ({ value: p.id, label: `${p.year}年${p.month}月` }))}
+            />
           </div>
         )}
 
         {period && (
           <>
-            <Section header={`${period.year}年${period.month}月に回答した人`} footer="自分の名前を押すと、出した内容を直せる。" plain>
-              {members.length === 0 ? (
-                <div className="rounded-xl bg-card px-4 py-3 text-[15px] text-fg3">まだ誰も回答していない</div>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {members.map((m) => (
-                    <Button key={m.id} variant={editing?.id === m.id ? "filled" : "gray"} onClick={() => startEdit(m)}>
-                      {m.name}
-                    </Button>
-                  ))}
-                </div>
-              )}
+            <Section header={`${period.year}年${period.month}月に回答した人`} footer="自分の名前を押すと、出した内容を直せる。">
+              <RowButton onClick={startNew} aria-pressed={!editing}>
+                <Plus size={20} strokeWidth={2} aria-hidden />
+                <span className="flex-1">新しく回答する</span>
+                {!editing && <Check size={20} strokeWidth={2.5} aria-hidden />}
+              </RowButton>
+              {members.map((m) => (
+                <RowButton key={m.id} tone="fg" onClick={() => startEdit(m)} aria-pressed={editing?.id === m.id}>
+                  <span className="min-w-0 flex-1 truncate">{m.name}</span>
+                  <span className="text-[15px] tabular-nums text-fg3">休み {m.off.length}日</span>
+                  {editing?.id === m.id ? (
+                    <Check size={20} strokeWidth={2.5} className="text-accent" aria-hidden />
+                  ) : (
+                    <ChevronRight size={18} strokeWidth={2.5} className="text-fg3 opacity-60" aria-hidden />
+                  )}
+                </RowButton>
+              ))}
             </Section>
 
             <div id="form" className="scroll-mt-14" />
-            {editing ? (
-              <Section header="名前">
+            <Section>
+              {editing ? (
                 <Row>
-                  <span className="flex-1 text-[17px] font-semibold">{editing.name}</span>
-                  <Button variant="plain" className="-mr-3" onClick={startNew}>
-                    <UserPlus size={18} strokeWidth={2} aria-hidden />
-                    別の人として回答
-                  </Button>
+                  <span className="w-24 shrink-0 text-[17px]">名前</span>
+                  <span className="flex-1 truncate text-[17px] text-fg3">{editing.name}</span>
                 </Row>
-              </Section>
-            ) : (
-              <Section header="名前">
+              ) : (
                 <RowInput label="名前" value={name} onChange={(e) => { setName(e.target.value); setSaved(false); }} maxLength={20} placeholder="例: 山田" />
-              </Section>
-            )}
+              )}
+            </Section>
 
             <Section header="日ごとの希望" footer="最初は全部の日が「出勤希望」。休みたい日を押すと「休み」になる。もう一度押すと戻る。">
-              <div className="p-2">
+              <div className="px-1 pb-1 pt-3">
                 <OffPicker year={period.year} month={period.month} holidays={period.holidays} off={off} onToggle={toggle} />
               </div>
             </Section>

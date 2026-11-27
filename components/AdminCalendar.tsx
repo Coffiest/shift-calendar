@@ -1,4 +1,5 @@
 "use client";
+import { Check } from "lucide-react";
 import { buildDays, buildWeeks, levelFor, WEEK_LABELS, type DayInfo } from "@/lib/calendar";
 import { availableOn, workersOn } from "@/lib/shifts";
 import type { Member, PeriodInfo } from "@/lib/types";
@@ -13,14 +14,14 @@ function DayBlock({ d, period, members, onToggle, compact }: { d: DayInfo; compa
   const red = d.col === 6 || d.holiday;
   const tone = red ? "text-sun" : d.col === 5 ? "text-sat" : "text-fg";
   return (
-    <div className={`flex h-full flex-col rounded-xl p-2 ${LEVEL_BG[levelFor(count)]}`}>
+    <div className={`flex h-full flex-col rounded-[12px] p-2 ${LEVEL_BG[levelFor(count)]}`}>
       <div className="mb-1.5 flex items-baseline justify-between gap-1 px-1">
         <span className={`text-[19px] font-bold tabular-nums ${tone}`}>
           {compact ? d.day : `${period.month}/${d.day}`}
           {!compact && <span className="ml-1 text-[15px] font-semibold">({WEEK_LABELS[d.col]})</span>}
           {d.holiday && <span className="ml-1 text-[11px] font-semibold">{d.holiday}</span>}
         </span>
-        <span className="shrink-0 text-[13px] font-bold tabular-nums text-fg2">{count}人</span>
+        <span className="shrink-0 rounded-full bg-card/70 px-2 py-0.5 text-[13px] font-semibold tabular-nums text-fg">{count}人</span>
       </div>
       <div className={compact ? "flex flex-col gap-1" : "flex flex-wrap gap-1.5"}>
         {avail.map((m) => {
@@ -35,11 +36,12 @@ function DayBlock({ d, period, members, onToggle, compact }: { d: DayInfo; compa
               }}
               aria-pressed={!cut}
               aria-label={`${period.month}月${d.day}日 ${m.name} ${cut ? "出勤なし(押すと戻す)" : "出勤(押すと削る)"}`}
-              className={`pressable min-h-11 truncate rounded-full px-3 text-[15px] font-semibold ${compact ? "text-left" : ""} ${
-                cut ? "bg-transparent text-fg3 line-through outline outline-1 -outline-offset-1 outline-sep" : "bg-card text-fg shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+              className={`pressable flex min-h-11 items-center gap-1 rounded-full pl-2.5 pr-3 text-[15px] ${
+                cut ? "bg-fill text-fg3 line-through" : "bg-card font-semibold text-fg shadow-[0_1px_3px_rgba(0,0,0,0.1)]"
               }`}
             >
-              {m.name}
+              <Check size={15} strokeWidth={3} className={`shrink-0 ${cut ? "opacity-0" : "text-ok"}`} aria-hidden />
+              <span className="truncate">{m.name}</span>
             </button>
           );
         })}
