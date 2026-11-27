@@ -1,8 +1,8 @@
 "use client";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
-import { Copy, Check, Download, Plus, Share, Trash2 } from "lucide-react";
-import { NavBar, Page, LargeTitle, Section, Row, RowInput, Button, Switch, ErrorText, api, ApiError } from "@/components/ui";
+import { Copy, Download, Plus, Share, Trash2 } from "lucide-react";
+import { NavBar, Page, LargeTitle, Section, Row, RowInput, RowButton, RowSelect, Segmented, ActionSheet, Hud, useHud, Button, Switch, ErrorText, api, ApiError, type SheetAction } from "@/components/ui";
 import { AdminCalendar } from "@/components/AdminCalendar";
 import { LEGEND, LEVEL_BG } from "@/components/levels";
 import { renderShiftPng } from "@/components/png";
@@ -15,31 +15,26 @@ function nextMonthOf(y: number, m: number) {
   return m === 12 ? { year: y + 1, month: 1 } : { year: y, month: m + 1 };
 }
 
-function CopyRow({ label, url }: { label: string; url: string }) {
-  const [done, setDone] = useState(false);
+function LinkRow({ label, url, onCopied }: { label: string; url: string; onCopied: () => void }) {
   return (
-    <Row>
+    <RowButton
+      tone="fg"
+      aria-label={`${label}をコピー`}
+      onClick={async () => {
+        await navigator.clipboard.writeText(url).catch(() => {});
+        navigator.vibrate?.(10);
+        onCopied();
+      }}
+    >
       <div className="min-w-0 flex-1">
         <p className="text-[17px]">{label}</p>
         <p className="truncate text-[13px] text-fg3">{url}</p>
       </div>
-      <Button
-        variant="tinted"
-        aria-label={`${label}をコピー`}
-        onClick={async () => {
-          await navigator.clipboard.writeText(url).catch(() => {});
-          setDone(true);
-          setTimeout(() => setDone(false), 1500);
-        }}
-      >
-        {done ? <Check size={18} strokeWidth={2} aria-hidden /> : <Copy size={18} strokeWidth={2} aria-hidden />}
-        {done ? "コピーした" : "コピー"}
-      </Button>
-    </Row>
+      <Copy size={20} strokeWidth={2} className="text-accent" aria-hidden />
+    </RowButton>
   );
 }
 
-const selectClass = "pressable min-h-11 rounded-full bg-fill px-4 text-[15px] font-semibold text-fg outline-none";
 
 function AdminInner() {
   const { id } = useParams<{ id: string }>();
@@ -55,6 +50,8 @@ function AdminInner() {
   const [newYm, setNewYm] = useState({ year: 2027, month: 1 });
   const [png, setPng] = useState<{ url: string; blob: Blob } | null>(null);
   const [origin, setOrigin] = useState("");
+  const [sheet, setSheet] = useState<{ title: string; message?: string; actions: SheetAction[] } | null>(null);
+  const [hud, showHud] = useHud();
 
   useEffect(() => setOrigin(location.origin), []);
 
@@ -137,9 +134,17 @@ function AdminInner() {
     }
   }
 
+  function askDeletePeriod() {
+    if (!period) return;
+    setSheet({
+      title: `${period.year}年${period.month}月を消す`,
+      message: "集まった回答もすべて消える。元に戻せない。",
+      actions: [{ label: "この月を消す", destructive: true, onSelect: () => { setSheet(null); deletePeriod(); } }],
+    });
+  }
+
   async function deletePeriod() {
     if (!period) return;
-    if (!confirm(`${period.year}年${period.month}月を、回答ごと消す。元に戻せない。よいか`)) return;
     try {
       await api(`/api/periods/${period.id}`, { method: "DELETE" });
       setPid(null);
@@ -147,8 +152,25 @@ function AdminInner() {
     } catch (e) { handle(e); }
   }
 
+  function askDeleteMember(m: Member) {
+    setSheet({
+      title: `${m.name} さんの回答を消す`,
+      message: "元に戻せない。",
+      actions: [{ label: "回答を消す", destructive: true, onSelect: () => { setSheet(null); deleteMember(m); } }],
+    });
+  }
+
+  async function shareStaffLink(url: string) {
+    const nav = navigator as Navigator & { share?: (d: ShareData) => Promise<void> };
+    if (nav.share) {
+      await nav.share({ title: "休み希望の提出", text: "このリンクから休み希望を出してください", url }).catch(() => {});
+    } else {
+      await navigator.clipboard.writeText(url).catch(() => {});
+      showHud("コピーしました");
+    }
+  }
+
   async function deleteMember(m: Member) {
-    if (!confirm(`${m.name} さんの回答を消す。元に戻せない。よいか`)) return;
     try {
       await api(`/api/members/${m.id}`, { method: "DELETE" });
       setMembers((list) => list.filter((x) => x.id !== m.id));
@@ -198,8 +220,9 @@ function AdminInner() {
 
   const yearOptions = useMemo(() => {
     const y = new Date().getFullYear();
-    return [y, y + 1, y + 2];
+    return [y, y + 1, y + 2].map((v) => ({ value: v, label: `${v}年` }));
   }, []);
+  const monthOptions = useMemo(() => Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}月` })), []);
 
   if (loadErr) return <><NavBar title="店長" /><Page><Section><Row><p className="text-[17px]">{loadErr}</p></Row></Section></Page></>;
   if (!store) return <><NavBar title="" /><Page><p className="px-4 text-fg3">読み込み中</p></Page></>;
@@ -241,36 +264,35 @@ function AdminInner() {
         )}
 
         <div className="md:grid md:grid-cols-2 md:gap-6">
-          <Section header="共有">
-            <CopyRow label="バイトに送るリンク" url={staffUrl} />
-            <CopyRow label="店長用のURL" url={adminUrl} />
+          <Section header="共有" footer="バイトに送るリンクは毎月同じ。店長用のURLは人に送らない。行を押すとコピーできる。">
+            <RowButton onClick={() => shareStaffLink(staffUrl)}>
+              <Share size={20} strokeWidth={2} aria-hidden />
+              <span className="flex-1">バイトにリンクを送る</span>
+            </RowButton>
+            <LinkRow label="バイトに送るリンク" url={staffUrl} onCopied={() => showHud("コピーしました")} />
+            <LinkRow label="店長用のURL" url={adminUrl} onCopied={() => showHud("コピーしました")} />
           </Section>
 
-          <Section header="募集する月" footer="バイトに送るリンクは毎月同じ。受付中の月だけがバイトの画面に出る。">
-            {periods.length > 0 && (
-              <Row className="flex-wrap">
-                {periods.map((p) => (
-                  <Button key={p.id} variant={p.id === pid ? "filled" : "gray"} onClick={() => setPid(p.id)}>
-                    {p.year}年{p.month}月
-                    <span className="text-[13px] opacity-80">{p.open ? "受付中" : "終了"}</span>
-                  </Button>
-                ))}
-              </Row>
-            )}
-            <Row className="flex-wrap">
-              <select className={selectClass} value={newYm.year} onChange={(e) => setNewYm({ ...newYm, year: Number(e.target.value) })} aria-label="年">
-                {yearOptions.map((y) => <option key={y} value={y}>{y}年</option>)}
-              </select>
-              <select className={selectClass} value={newYm.month} onChange={(e) => setNewYm({ ...newYm, month: Number(e.target.value) })} aria-label="月">
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => <option key={m} value={m}>{m}月</option>)}
-              </select>
-              <Button variant="tinted" onClick={createPeriod}>
-                <Plus size={18} strokeWidth={2} aria-hidden />
-                募集を作る
-              </Button>
-            </Row>
+          <Section header="新しい月の募集">
+            <RowSelect label="年" value={newYm.year} options={yearOptions} onChange={(year) => setNewYm({ ...newYm, year })} />
+            <RowSelect label="月" value={newYm.month} options={monthOptions} onChange={(month) => setNewYm({ ...newYm, month })} />
+            <RowButton onClick={createPeriod}>
+              <Plus size={20} strokeWidth={2} aria-hidden />
+              <span className="flex-1">{newYm.year}年{newYm.month}月の募集を作る</span>
+            </RowButton>
           </Section>
         </div>
+
+        {periods.length > 0 && (
+          <div className="mb-8">
+            <Segmented
+              label="募集している月"
+              value={pid}
+              onChange={setPid}
+              items={periods.map((p) => ({ value: p.id, label: `${p.year}年${p.month}月` }))}
+            />
+          </div>
+        )}
 
         <ErrorText>{err}</ErrorText>
 
@@ -284,12 +306,10 @@ function AdminInner() {
                 </div>
                 <Switch checked={period.open} onChange={setOpen} label="受付中" />
               </Row>
-              <Row>
-                <button type="button" onClick={makePng} className="pressable flex min-h-11 flex-1 items-center gap-2 text-left text-[17px] text-accent">
-                  <Download size={20} strokeWidth={2} aria-hidden />
-                  PNGで書き出す
-                </button>
-              </Row>
+              <RowButton onClick={makePng}>
+                <Download size={20} strokeWidth={2} aria-hidden />
+                <span className="flex-1">PNGで書き出す</span>
+              </RowButton>
             </Section>
 
             <Section
@@ -322,7 +342,7 @@ function AdminInner() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => deleteMember(m)}
+                      onClick={() => askDeleteMember(m)}
                       aria-label={`${m.name} さんの回答を消す`}
                       className="pressable -mr-2 flex h-11 w-11 items-center justify-center text-danger"
                     >
@@ -334,21 +354,20 @@ function AdminInner() {
             </Section>
 
             <Section>
-              <Row>
-                <button type="button" onClick={deletePeriod} className="pressable flex min-h-11 flex-1 items-center justify-center text-[17px] text-danger">
-                  この月を消す
-                </button>
-              </Row>
+              <RowButton center tone="danger" onClick={askDeletePeriod}>この月を消す</RowButton>
             </Section>
           </>
         )}
       </Page>
 
+      <Hud text={hud} />
+      {sheet && <ActionSheet title={sheet.title} message={sheet.message} actions={sheet.actions} onCancel={() => setSheet(null)} />}
+
       {png && (
         <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label="書き出した画像">
           <div className="scrim-enter absolute inset-0 bg-[var(--scrim)]" onClick={closePng} />
           <div
-            className="sheet-enter relative mx-auto flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-[16px] bg-bg"
+            className="sheet-enter relative mx-auto flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-[14px] bg-bg shadow-[0_-8px_30px_rgba(0,0,0,0.2)]"
             style={{ paddingBottom: "max(env(safe-area-inset-bottom), 12px)" }}
           >
             <div className="mx-auto mt-2 h-[5px] w-9 rounded-full bg-fill" aria-hidden />
