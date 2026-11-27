@@ -1,40 +1,105 @@
 "use client";
 import { useEffect, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
-import { Check, ChevronsUpDown } from "lucide-react";
+import { CalendarDays, Check, ChevronsUpDown } from "lucide-react";
 
-/** 上に固定するバー。大きな見出しが隠れたら、題が小さくバーに収まる(iOS の Large Title と同じ) */
-export function NavBar({ title, left, right }: { title: string; left?: ReactNode; right?: ReactNode }) {
+/** アプリのアイコン(ヘッダー・トップ画面で共通) */
+export function AppIcon({ size = 28 }: { size?: number }) {
+  return (
+    <span
+      className="inline-flex shrink-0 items-center justify-center bg-gradient-to-b from-[#3d8bff] to-[#0062d6] text-white shadow-[0_1px_2px_rgba(0,0,0,0.15)]"
+      style={{ width: size, height: size, borderRadius: size * 0.2237 }}
+      aria-hidden
+    >
+      <CalendarDays size={size * 0.58} strokeWidth={2} />
+    </span>
+  );
+}
+
+/** ヘッダー。左にアプリのアイコンと題、右に操作。内容が下にくぐると半透明の素材になる */
+export function NavBar({ title, right }: { title: string; right?: ReactNode }) {
   const [scrolled, setScrolled] = useState(false);
-  const [titleShown, setTitleShown] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 2);
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
-    const big = document.getElementById("large-title");
-    let io: IntersectionObserver | null = null;
-    if (big) {
-      io = new IntersectionObserver(([e]) => setTitleShown(!e.isIntersecting), { rootMargin: "-52px 0px 0px 0px" });
-      io.observe(big);
-    } else setTitleShown(true);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      io?.disconnect();
-    };
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
   return (
     <header className="nav-bar sticky top-0 z-30" data-scrolled={scrolled} style={{ paddingTop: "env(safe-area-inset-top)" }}>
-      <div className="mx-auto grid h-11 max-w-5xl grid-cols-[1fr_auto_1fr] items-center px-4">
-        <span className="flex justify-start">{left}</span>
-        <span className="nav-title max-w-[60vw] truncate text-[17px] font-semibold" style={{ opacity: titleShown ? 1 : 0 }} aria-hidden={!titleShown}>{title}</span>
-        <span className="flex justify-end">{right}</span>
+      <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
+        <AppIcon size={32} />
+        <span className="min-w-0 flex-1 truncate text-[20px] font-bold tracking-[-0.01em]">{title}</span>
+        <span className="flex items-center gap-1">{right}</span>
       </div>
     </header>
   );
 }
 
-export function Page({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
+/** ヘッダーの右に置く丸いアイコンボタン(44x44 の押せる範囲) */
+export function IconButton({ label, children, onClick, tone = "accent" }: { label: string; children: ReactNode; onClick: () => void; tone?: "accent" | "fg" }) {
   return (
-    <main className={`mx-auto w-full px-4 pb-32 pt-4 ${wide ? "max-w-5xl" : "max-w-xl"}`}>{children}</main>
+    <button type="button" aria-label={label} title={label} onClick={onClick} className={`pressable flex h-11 w-11 items-center justify-center rounded-full ${tone === "accent" ? "text-accent" : "text-fg"}`}>
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-fill">{children}</span>
+    </button>
+  );
+}
+
+export type Tab<T extends string> = { value: T; label: string; icon: ReactNode };
+
+/** フッター: iPhone の下のタブ */
+export function TabBar<T extends string>({ tabs, value, onChange }: { tabs: Tab<T>[]; value: T; onChange: (v: T) => void }) {
+  return (
+    <nav className="material-bar fixed inset-x-0 bottom-0 z-30 border-t-[0.5px] border-sep" style={{ paddingBottom: "env(safe-area-inset-bottom)" }} aria-label="画面の切り替え">
+      <div className="mx-auto grid h-[56px] max-w-xl" style={{ gridTemplateColumns: `repeat(${tabs.length}, 1fr)` }}>
+        {tabs.map((t) => {
+          const on = t.value === value;
+          return (
+            <button
+              key={t.value}
+              type="button"
+              aria-current={on ? "page" : undefined}
+              onClick={() => onChange(t.value)}
+              className={`flex flex-col items-center justify-center gap-0.5 transition-colors ${on ? "text-accent" : "text-fg3"}`}
+            >
+              {t.icon}
+              <span className="text-[11px] font-medium leading-none">{t.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+/** フッター(タブの無い画面用) */
+export function Footer() {
+  return (
+    <footer className="mx-auto mt-8 flex max-w-xl items-center justify-center gap-2 border-t-[0.5px] border-sep px-4 pb-8 pt-6 text-[13px] text-fg3" style={{ paddingBottom: "max(env(safe-area-inset-bottom), 32px)" }}>
+      <AppIcon size={20} />
+      <span>シフト調整</span>
+    </footer>
+  );
+}
+
+/** 連絡先アプリと同じ、頭文字の丸 */
+export function Monogram({ name, size = 40, active = false }: { name: string; size?: number; active?: boolean }) {
+  const ch = Array.from(name.trim())[0] ?? "?";
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${
+        active ? "bg-gradient-to-b from-[#3d8bff] to-[#0062d6]" : "bg-gradient-to-b from-[#6f737c] to-[#53565e]"
+      }`}
+      style={{ width: size, height: size, fontSize: size * 0.42 }}
+      aria-hidden
+    >
+      {ch}
+    </span>
+  );
+}
+
+export function Page({ children, wide = false, bare = false }: { children: ReactNode; wide?: boolean; bare?: boolean }) {
+  return (
+    <main className={`mx-auto w-full px-4 pt-4 ${bare ? "pb-0" : "pb-36"} ${wide ? "max-w-5xl" : "max-w-xl"}`}>{children}</main>
   );
 }
 
